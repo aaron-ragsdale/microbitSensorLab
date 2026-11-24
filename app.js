@@ -58,8 +58,12 @@ function updateReady(){
 }
 function setServiceMessage(){
  const list=[...state.services];
+ const receiving=list.filter(k=>state.serviceData.has(k));
+ const waiting=list.filter(k=>!state.serviceData.has(k));
  const missing=Object.keys(DEF).filter(k=>!state.services.has(k));
  const parts=[list.length?'Available: '+list.map(k=>DEF[k]?.label||k).join(' · '):'No sensor services detected'];
+ if(receiving.length)parts.push('Receiving: '+receiving.map(k=>DEF[k].label).join(' · '));
+ if(waiting.length)parts.push('Subscribed, waiting for data: '+waiting.map(k=>DEF[k].label).join(' · '));
  if(missing.length)parts.push('Missing: '+missing.map(k=>DEF[k].label).join(' · '));
  if(state.mode==='bluetooth')parts.push('UART: '+(state.uartSubscribed?'subscribed':'not subscribed')+' · '+state.uartPackets+' valid packets · '+state.uartBytes+' bytes'+(state.uartLast?' · last: '+state.uartLast:''));
  if(state.serviceErrors.length)parts.push('Details: '+state.serviceErrors.join(' | '));
@@ -83,7 +87,9 @@ function addSample(partial,at){
  Object.assign(state.latest,partial);
  for(const key of Object.keys(partial))state.lastSeen[key]=stamp;
  const sample={time_ms:Math.round(stamp*10)/10,...state.latest};
- for(const key of Object.keys(partial))if(KEYS.includes(key)&&Number.isFinite(partial[key]))state.serviceData.add(sensorForKey(key));
+ let newReceiving=false;
+ for(const key of Object.keys(partial))if(KEYS.includes(key)&&Number.isFinite(partial[key])){const sensor=sensorForKey(key);if(!state.serviceData.has(sensor))newReceiving=true;state.serviceData.add(sensor);}
+ if(newReceiving&&state.mode==='bluetooth')setServiceMessage();
  // Missing sensor values stay blank rather than pretending older readings arrived simultaneously.
  for(const key of KEYS)if(!(key in partial)&&!(key in state.latest))sample[key]=null;
  state.samples.push(sample);
@@ -310,6 +316,7 @@ async function connect(){
   const ch=await s.getCharacteristic(UUID.uartNotify);
   const handle=e=>{
    state.uartBytes+=e.target.value.byteLength;
+   if(state.uartBytes<160||state.uartBytes%20===0)setServiceMessage();
    uartBuffer+=new TextDecoder().decode(e.target.value);
    if(uartBuffer.length>300)uartBuffer=uartBuffer.slice(-150);
    let pos;
