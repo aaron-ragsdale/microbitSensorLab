@@ -45,3 +45,11 @@ The website now reports which Bluetooth services it can access. If only accelero
 The revised `main.ts` reduces service count and streams these newline-delimited UART packets: `M,x,y,z` for magnetic field, `C,heading` for compass, `LS,light,sound` for environment readings, and `T,temp` as a temperature fallback. It is an **untested update** until you compile and verify it on micro:bit V2. The website also supports the earlier magnetometer GATT service when it is available.
 
 The dashboard shows a larger graph when only one sensor is checked, compact graphs for multiple sensors, X/Y/Z selection buttons for accelerometer and magnetometer, and step/hold plots for slowly updated scalar sensors such as temperature.
+
+## Latest source and compass calibration
+
+The latest `main.ts` starts **accelerometer, magnetometer, temperature and UART** services. It sends light and microphone sound levels over UART **only while Bluetooth is connected**. For compass heading, **press button A on the micro:bit** and follow the compass calibration instructions; heading packets begin after calibration completes. This change is intended to prevent first-use compass calibration from interrupting light/sound streaming.
+
+The website now includes an optional **Strength** curve under Accelerometer. Strength is calculated in the browser from the X, Y and Z readings as `sqrt(x*x + y*y + z*z)` in mg and is turned off by default. It includes gravity and is not a separate micro:bit sensor.
+
+The existing `microbit-sensor_lab.hex` is **not automatically regenerated** by edits to `main.ts`. Generate a new HEX in MakeCode and replace the file in this folder before the download button can serve this version. This source has not been independently verified on a physical board.
