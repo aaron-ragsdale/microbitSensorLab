@@ -23,7 +23,7 @@ This folder contains the firmware for connecting a **BBC micro:bit V2** to the [
 2. Choose **Connect micro:bit**, then select your board in the browser Bluetooth picker.
 3. Choose the sensors you want to view. Explore the graphs, set threshold counters, record a trial, and export PNG images or CSV data.
 
-The firmware is designed to expose accelerometer, magnetometer/compass, and temperature Bluetooth services and send light and microphone **sound-level** measurements through Bluetooth UART. The micro:bit V2 does not include a gyroscope, and sound level is not a raw audio recording.
+The **original compiled HEX** was designed to expose accelerometer, magnetometer/compass, and temperature Bluetooth services and send light and microphone **sound-level** measurements through Bluetooth UART. The **current main.ts source** has since been revised to reduce the number of GATT services: it exposes standard accelerometer and temperature services and sends magnetometer, compass, light and sound levels using compact UART packets. **The committed HEX is not automatically updated by a change to main.ts.** Recompile and flash a new HEX to get the revised protocol. The micro:bit V2 does not include a gyroscope, and sound level is not a raw audio recording.
 
 ## Troubleshooting
 
@@ -37,3 +37,11 @@ The firmware is designed to expose accelerometer, magnetometer/compass, and temp
 The committed HEX is provided for convenience but has not yet been independently hardware-validated in this project. Test it on one board before preparing a classroom set. This firmware uses Bluetooth, **not the micro:bit Radio extension**.
 
 For details about the full web application, see the [main project README](../README.md).
+
+## Firmware versions and missing sensors
+
+The website now reports which Bluetooth services it can access. If only accelerometer and temperature appear, the installed HEX may lack the additional services or the UART stream may not have started successfully. The checkbox only controls visibility; it cannot turn a missing Bluetooth service on.
+
+The revised `main.ts` reduces service count and streams these newline-delimited UART packets: `M,x,y,z` for magnetic field, `C,heading` for compass, `LS,light,sound` for environment readings, and `T,temp` as a temperature fallback. It is an **untested update** until you compile and verify it on micro:bit V2. The website also supports the earlier magnetometer GATT service when it is available.
+
+The dashboard shows a larger graph when only one sensor is checked, compact graphs for multiple sensors, X/Y/Z selection buttons for accelerometer and magnetometer, and step/hold plots for slowly updated scalar sensors such as temperature.
