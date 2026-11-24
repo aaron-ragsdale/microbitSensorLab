@@ -1,13 +1,13 @@
-// micro:bit Sensor Lab — V2 MakeCode firmware, Bluetooth extension required.
-// Compile at https://makecode.microbit.org/ and flash the newly generated HEX.
-// Choose "No Pairing Required" in MakeCode Bluetooth settings for supervised tests.
+// micro:bit Sensor Lab — Bluetooth sensor firmware for micro:bit V2.
+// Paste in MakeCode JavaScript after adding the Bluetooth extension.
+// Generate a new HEX, flash it, and reconnect in Sensor Lab.
 //
-// Accelerometer, magnetometer and temperature: standard BLE GATT services.
-// Light and sound level: Nordic UART packets "LS,<light>,<sound>\n".
-// Compass heading: UART "C,<heading>\n" after compass calibration.
-// Press button A to calibrate the compass, following on-screen instructions.
-// The UART stream is gated on connection to avoid filling buffers beforehand.
-// micro:bit V2 has no gyroscope. Microphone gives sound level, not raw audio.
+// Standard BLE services: accelerometer X/Y/Z, magnetometer X/Y/Z, temperature.
+// Nordic UART: light and microphone sound level, compass heading.
+// The web app sends "START\n" after subscribing to UART notifications.
+// The board replies "ACK\n" and begins sending "LS,light,sound" rows.
+// Button A starts compass calibration. Heading follows once it finishes.
+// Short UART packets fit the default BLE payload size.
 
 bluetooth.startAccelerometerService()
 bluetooth.startMagnetometerService()
@@ -15,14 +15,25 @@ bluetooth.startTemperatureService()
 bluetooth.startUartService()
 
 let bleConnected = false
+let streaming = false
 let compassReady = false
 
 bluetooth.onBluetoothConnected(function () {
     bleConnected = true
+    streaming = false
 })
 
 bluetooth.onBluetoothDisconnected(function () {
     bleConnected = false
+    streaming = false
+})
+
+bluetooth.onUartDataReceived(serial.delimiters(Delimiters.NewLine), function () {
+    let command = bluetooth.uartReadUntil(serial.delimiters(Delimiters.NewLine))
+    if (command == "START") {
+        streaming = true
+        bluetooth.uartWriteLine("ACK")
+    }
 })
 
 input.onButtonPressed(Button.A, function () {
@@ -34,10 +45,9 @@ input.onButtonPressed(Button.A, function () {
 basic.clearScreen()
 
 basic.forever(function () {
-    if (bleConnected) {
-        // Keep packets short enough for the default BLE UART payload size.
+    if (bleConnected && streaming) {
         bluetooth.uartWriteLine("LS," + input.lightLevel() + "," + input.soundLevel())
-        basic.pause(120)
+        basic.pause(150)
         if (compassReady) {
             bluetooth.uartWriteLine("C," + input.compassHeading())
         }
