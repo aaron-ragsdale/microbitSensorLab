@@ -1,38 +1,46 @@
-// micro:bit Sensor Lab — V2 sensor-streaming firmware (experimental).
-// MakeCode: add Bluetooth extension, no Radio, "No Pairing Required" for supervised testing.
-// Built-in accelerometer and temperature are sent through standard BLE services.
-// A single UART service sends magnetometer, compass, light and sound levels.
-// This uses fewer GATT services than starting every standard sensor service.
-// The Sensor Lab website handles both the older HEX and this compact protocol.
+// micro:bit Sensor Lab — V2 MakeCode firmware, Bluetooth extension required.
+// Compile at https://makecode.microbit.org/ and flash the newly generated HEX.
+// Choose "No Pairing Required" in MakeCode Bluetooth settings for supervised tests.
 //
-// Flash a newly compiled HEX before testing the UART magnetic/compass readings.
-// Protocol (newline-terminated):
-// M,<X>,<Y>,<Z>       magnetic force in microteslas
-// C,<heading>         degrees
-// LS,<light>,<sound>   0..255
-// T,<temperature>     degrees C, optional fallback
+// Accelerometer, magnetometer and temperature: standard BLE GATT services.
+// Light and sound level: Nordic UART packets "LS,<light>,<sound>\n".
+// Compass heading: UART "C,<heading>\n" after compass calibration.
+// Press button A to calibrate the compass, following on-screen instructions.
+// The UART stream is gated on connection to avoid filling buffers beforehand.
+// micro:bit V2 has no gyroscope. Microphone gives sound level, not raw audio.
 
 bluetooth.startAccelerometerService()
+bluetooth.startMagnetometerService()
 bluetooth.startTemperatureService()
 bluetooth.startUartService()
+
+let bleConnected = false
+let compassReady = false
+
+bluetooth.onBluetoothConnected(function () {
+    bleConnected = true
+})
+
+bluetooth.onBluetoothDisconnected(function () {
+    bleConnected = false
+})
+
+input.onButtonPressed(Button.A, function () {
+    input.calibrateCompass()
+    compassReady = true
+    basic.clearScreen()
+})
+
 basic.clearScreen()
 
-let updateCount = 0
 basic.forever(function () {
-    bluetooth.uartWriteLine("M," +
-        input.magneticForce(Dimension.X) + "," +
-        input.magneticForce(Dimension.Y) + "," +
-        input.magneticForce(Dimension.Z))
-    basic.pause(35)
-
-    bluetooth.uartWriteLine("LS," + input.lightLevel() + "," + input.soundLevel())
-    basic.pause(35)
-
-    if (updateCount % 4 == 0) {
-        bluetooth.uartWriteLine("C," + input.compassHeading())
-        basic.pause(35)
-        bluetooth.uartWriteLine("T," + input.temperature())
+    if (bleConnected) {
+        // Keep packets short enough for the default BLE UART payload size.
+        bluetooth.uartWriteLine("LS," + input.lightLevel() + "," + input.soundLevel())
+        basic.pause(120)
+        if (compassReady) {
+            bluetooth.uartWriteLine("C," + input.compassHeading())
+        }
     }
-    updateCount += 1
-    basic.pause(180)
+    basic.pause(250)
 })
