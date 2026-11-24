@@ -53,3 +53,17 @@ The latest `main.ts` starts **accelerometer, magnetometer, temperature and UART*
 The website now includes an optional **Strength** curve under Accelerometer. Strength is calculated in the browser from the X, Y and Z readings as `sqrt(x*x + y*y + z*z)` in mg and is turned off by default. It includes gravity and is not a separate micro:bit sensor.
 
 The existing `microbit-sensor_lab.hex` is **not automatically regenerated** by edits to `main.ts`. Generate a new HEX in MakeCode and replace the file in this folder before the download button can serve this version. This source has not been independently verified on a physical board.
+
+## Bluetooth UART handshake diagnostic (latest revision)
+
+If **acceleration, magnetic field, and temperature work** but **light, sound, and compass do not**, the standard services are working and the UART path needs testing. The latest website subscribes to UART notifications and sends `START\n`; the latest `firmware/main.ts` waits for that command, replies `ACK\n`, and streams `LS,light,sound\n` while connected. **Press button A to calibrate the compass;** after successful calibration the board streams `C,heading\n` too.
+
+After updating and flashing the **newly compiled HEX**, open the website, hard-refresh, and reconnect. Under the connection controls, look for:
+
+- **UART: not subscribed** or **Missing: light, sound:** The browser couldn't access the UART notifications. Check the detailed error and HEX version.
+- **Handshake: write failed:** The app couldn't send START to the board. Check the error text.
+- **Handshake: START sent, 0 bytes:** The board did not reply. Check that the *new* HEX is flashed; on-board MakeCode may not be receiving the command.
+- **Handshake: acknowledged:** The UART connection is working. Light and sound should show sensor samples. Compass needs button A calibration.
+- **Bytes greater than zero but 0 sensor packets:** The BLE connection is delivering text but the message format is not matching the parser.
+
+**Important:** The checked-in HEX may be older than the current `main.ts`. Editing `main.ts` does not compile or replace it. The Bluetooth handshake has been code-reviewed but **not physically verified on a micro:bit**. As a further isolation test, temporarily flash a MakeCode program with only `bluetooth.startUartService()` and a simple periodic `bluetooth.uartWriteLine("LS,100,50")`. If this works, multiple BLE services or the compiled firmware is the likely issue; if it fails, focus on UART characteristic access/subscription or the browser platform.
