@@ -12,6 +12,7 @@ A lightweight, **static GitHub Pages** sensor exploration and measurement lab fo
 - **Record:** Record 5, 10, 30, 60 seconds, or manually start/stop. Sensor observations are held in your browser memory for the current session.
 - **Export:** Save a high-resolution PNG image of the selected graphs with threshold line, a CSV containing timestamped samples for all sensors, or both. A custom trial name is used for filenames.
 - **Replay:** Import a previously saved CSV, adjust thresholds again, and replay the data on the same charts.
+- **Clear graph:** Reset the current live plots and crossing count without disconnecting the micro:bit or interrupting a recording. Saved trial exports are not erased.
 - **Try demo:** Simulated signals let students learn the interface without a micro:bit.
 
 No gyroscope is available on a micro:bit V2. The microphone output here is **sound level only**, not recorded audio.
