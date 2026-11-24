@@ -70,7 +70,7 @@ function addSample(partial,at){
  for(const key of KEYS)if(!(key in partial)&&!(key in state.latest))sample[key]=null;
  state.samples.push(sample);
  if(state.samples.length>MAX_SAMPLES)state.samples.splice(0,state.samples.length-MAX_SAMPLES);
- if(state.recording){state.recordSamples.push({...sample});$('recordSamples').textContent=state.recordSamples.length+' samples';}
+ if(state.recording){state.recordSamples.push({...sample});$('recordSamples').textContent=state.recordSamples.length+' samples';$('recordTime').textContent=formatSeconds(timeNow()-state.recordStart);}
  if(state.samples.length%5===0)renderCount();
 }
 function mergeView(data){
@@ -304,6 +304,7 @@ function finishRecording(){
  state.savedSamples=state.recordSamples.slice();
  state.savedName=state.recordName;
  $('recordBtn').textContent='● Start recording';
+ $('recordTime').textContent=formatSeconds(timeNow()-state.recordStart);
  $('recBadge').className='pill';$('recBadge').textContent='Saved locally';
  $('recordingStatus').textContent='Trial captured. Export graph/CSV or start another.';
  updateReady();
@@ -317,7 +318,7 @@ function beginRecording(){
  state.recordStart=timeNow();
  $('recordBtn').textContent='■ Stop recording';$('recordBtn').disabled=false;
  $('recBadge').textContent='● Recording';$('recBadge').className='pill recording';
- $('recordSamples').textContent='0 samples';$('recordingStatus').textContent='Capturing all available sensors…';
+ $('recordSamples').textContent='0 samples';$('recordTime').textContent='00:00.0';$('recordingStatus').textContent='Capturing all available sensors…';
  const duration=number($('durationSelect').value);
  if(duration)state.recordTimer=setTimeout(finishRecording,duration*1000);
 }
@@ -345,7 +346,7 @@ async function exportPng(){
  const nodes=[],colors=['#367ce2','#e9a158','#269b88'];
  nodes.push('<rect width="'+pWidth+'" height="'+pHeight+'" fill="#ffffff"/>');
  nodes.push('<text x="45" y="42" font-family="Arial,sans-serif" font-size="22" font-weight="bold" fill="#24344e">'+xmlSafe(state.savedName)+'</text>');
- nodes.push('<text x="45" y="67" font-family="Arial,sans-serif" font-size="12" fill="#71829b">micro:bit Sensor Lab · recorded sensor data · time in seconds</text>');
+ nodes.push('<text x="45" y="67" font-family="Arial,sans-serif" font-size="12" fill="#71829b">micro:bit Sensor Lab · recorded sensor data · time in seconds · '+thresholds(source).length+' threshold crossings</text>');
  const start=source[0]?.time_ms||0,end=source[source.length-1]?.time_ms||start+1000,duration=Math.max(1,end-start);
  full.forEach((def,groupIdx)=>{
   const top=90+groupIdx*235;
