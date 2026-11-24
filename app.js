@@ -31,7 +31,7 @@ const state={
  startClock:0,paused:false,pausedAt:0,services:new Set(),demoTimer:null,frameHandle:null,
  recording:false,recordSamples:[],recordStart:0,recordName:'Walking_Trial_01',recordTimer:null,
  savedSamples:[],savedName:'',replaying:false,replayTimer:null,thresholdEvents:[],lastThresholdReset:0,
- plotTouched:false,clickedThreshold:false
+ plotTouched:false,clickedThreshold:false,axisVisible:{ax:true,ay:true,az:true,mx:true,my:true,mz:true},serviceErrors:[],serviceData:new Set()
 };
 const MAX_SAMPLES=30000;
 const timeNow=()=>performance.now();
@@ -57,7 +57,11 @@ function updateReady(){
 }
 function setServiceMessage(){
  const list=[...state.services];
- $('serviceStatus').textContent=list.length?'Available: '+list.map(k=>DEF[k]?.label||k).join(' · '):'No live sensor services detected yet.';
+ const missing=Object.keys(DEF).filter(k=>!state.services.has(k));
+ const parts=[list.length?'Available: '+list.map(k=>DEF[k]?.label||k).join(' · '):'No sensor services detected'];
+ if(missing.length)parts.push('Missing: '+missing.map(k=>DEF[k].label).join(' · '));
+ if(state.serviceErrors.length)parts.push('Details: '+state.serviceErrors.join(' | '));
+ $('serviceStatus').textContent=parts.join(' — ');
 }
 function addSample(partial,at){
  if(state.mode==='none')return;
@@ -66,6 +70,7 @@ function addSample(partial,at){
  Object.assign(state.latest,partial);
  for(const key of Object.keys(partial))state.lastSeen[key]=stamp;
  const sample={time_ms:Math.round(stamp*10)/10,...state.latest};
+ for(const key of Object.keys(partial))if(KEYS.includes(key)&&Number.isFinite(partial[key]))state.serviceData.add(sensorForKey(key));
  // Missing sensor values stay blank rather than pretending older readings arrived simultaneously.
  for(const key of KEYS)if(!(key in partial)&&!(key in state.latest))sample[key]=null;
  state.samples.push(sample);
@@ -121,6 +126,8 @@ function renderCount(){
  state.thresholdEvents=thresholds(state.samples);
  $('crossingCount').textContent=state.thresholdEvents.length;
 }
+function plotHeight(count){return count===1?440:count===2?330:count===3?275:235;}
+function defHasAxes(group){return group==='accelerometer'||group==='magnetometer';}
 function createPlots(){
  if(!window.Plotly){$('graphStack').textContent='Chart library failed to load. Check your internet connection or browser content blocker.';return;}
  const stack=$('graphStack');stack.innerHTML='';
@@ -131,7 +138,17 @@ function createPlots(){
   const head=document.createElement('div');head.className='sensor-plot-header';
   const label=document.createElement('strong');label.textContent=DEF[group].label;
   const desc=document.createElement('span');desc.textContent=DEF[group].unit;
-  head.append(label,desc);const plot=document.createElement('div');plot.className='plot';plot.id='plot-'+group;
+  head.append(label,desc);
+  if(defHasAxes(group)){
+   const axes=document.createElement('div');axes.className='axis-pills';axes.setAttribute('aria-label',DEF[group].label+' visible axes');
+   DEF[group].keys.forEach((key,i)=>{
+    const b=document.createElement('button');b.type='button';b.className='axis-pill';b.textContent=DEF[group].labels[i];b.dataset.axis=key;
+    b.setAttribute('aria-pressed',String(state.axisVisible[key]!==false));
+    b.title='Toggle '+DEF[group].labels[i]+'-axis without changing the graph';
+    b.onclick=()=>{const next=!(state.axisVisible[key]!==false);state.axisVisible[key]=next;b.setAttribute('aria-pressed',String(next));drawPlots(true);};axes.append(b);
+   });head.append(axes);
+  }
+  const plot=document.createElement('div');plot.className='plot';plot.id='plot-'+group;plot.style.height=plotHeight(selected.length)+'px';
   box.append(head,plot);stack.append(box);
   plot.addEventListener('plotly_click',event=>{
    if(!event.points?.length||!event.event)return;
@@ -157,16 +174,19 @@ async function drawPlots(force=false){
  for(const group of selected){
   const element=$('plot-'+group);if(!element)continue;
   const def=DEF[group],isThreshold=$('countEnabled').checked&&sensorForKey(SETTINGS.signal)===group;
-  const traces=def.keys.map((key,i)=>{
+  const traces=def.keys.filter(key=>state.axisVisible[key]!==false).map((key)=>{
+   const i=def.keys.indexOf(key);
    const {xs,ys}=readingsFor(source,key);
    const shade=def.keys.length===3?['#367ce2','#ea9b56','#259d88'][i]:def.color;
-   return {type:'scattergl',mode:'lines',name:def.labels[i],x:xs,y:ys,line:{color:shade,width:1.9},hovertemplate:'%{x:.2f} s<br>%{y:.2f} '+def.unit+'<extra>%{fullData.name}</extra>'};
+   if(def.keys.length===1&&xs.length&&source.length){const lastTime=source[source.length-1].time_ms/1000;if(lastTime>xs.at(-1)){xs.push(lastTime);ys.push(ys.at(-1));}}
+   return {type:'scattergl',mode:'lines',name:def.labels[i],x:xs,y:ys,line:{color:shade,width:1.9,shape:def.keys.length===1?'hv':'linear'},hovertemplate:'%{x:.2f} s<br>%{y:.2f} '+def.unit+'<extra>%{fullData.name}</extra>'};
   });
   const events=isThreshold?thresholds(source).map(e=>e.t):[];
   const shapes=isThreshold?[{type:'line',xref:'paper',x0:0,x1:1,yref:'y',y0:SETTINGS.threshold,y1:SETTINGS.threshold,line:{color:'#d65760',width:2,dash:'dash'}}]:[];
+  const chartHeight=plotHeight(selected.length);
   const layout={
    paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',
-   margin:{l:56,r:14,t:10,b:46},height:255,
+   margin:{l:56,r:14,t:10,b:46},height:chartHeight,
    font:{size:11,color:'#687b95'},showlegend:true,legend:{orientation:'h',y:1.17,x:0,font:{size:10}},
    xaxis:{title:{text:'Time (s)',font:{size:10}},gridcolor:'#ecf0f5',zeroline:false,showspikes:true,spikemode:'across',spikecolor:'#a8b8ca'},
    yaxis:{title:{text:def.unit,font:{size:10}},gridcolor:'#ecf0f5',zeroline:false,autorange: $('autoScale').checked},
@@ -198,7 +218,7 @@ function clearTimers(){
  if(state.replayTimer){clearInterval(state.replayTimer);state.replayTimer=null;}
 }
 function resetData(){
- state.samples=[];state.latest={};state.lastSeen={};state.startClock=timeNow();state.lastThresholdReset=0;
+ state.samples=[];state.latest={};state.lastSeen={};state.startClock=timeNow();state.lastThresholdReset=0;state.serviceData=new Set();
  state.paused=false;state.plotTouched=false;$('pauseBtn').textContent='Pause view';
  renderCount();drawPlots(true);stream('Ready for new data');
 }
@@ -242,10 +262,10 @@ async function connect(){
  stat('Choose your micro:bit from the Bluetooth picker…');
  try{
  const device=await navigator.bluetooth.requestDevice({filters:[{namePrefix:'BBC micro:bit'}],optionalServices:[UUID.accelerometer,UUID.magnetometer,UUID.temperature,UUID.uart]});
- state.device=device;const server=await device.gatt.connect();state.server=server;state.mode='bluetooth';state.services=new Set();
+ state.device=device;const server=await device.gatt.connect();state.server=server;state.mode='bluetooth';state.services=new Set();state.serviceErrors=[];
  device.addEventListener('gattserverdisconnected',()=>{if(state.mode==='bluetooth')disconnect(true);});
  async function service(name,callback){
-  try{const s=await server.getPrimaryService(UUID[name]);await callback(s);}catch(e){console.info(name+' unavailable:',e.message);}
+  try{const s=await server.getPrimaryService(UUID[name]);await callback(s);}catch(e){const error=name+': '+e.message;state.serviceErrors.push(error);console.info('Sensor Bluetooth error:',error);}
  }
  await service('accelerometer',async s=>subscribe(s,UUID.accelerometerData,v=>signedVector(v,['ax','ay','az']),'accelerometer'));
  await service('magnetometer',async s=>{
@@ -266,18 +286,18 @@ async function connect(){
      const light=Number(pair[1]),sound=Number(pair[2]);
      if(Number.isFinite(light)&&Number.isFinite(sound)){
       addSample({light,sound,_changed:['light','sound']});
-      state.services.add('light');state.services.add('sound');
+      state.services.add('light');state.services.add('sound');setServiceMessage();
      }
     }
    }
   };
   await ch.startNotifications();ch.addEventListener('characteristicvaluechanged',handle);
   state.notifications.push({ch,handle});
-  state.services.add('light');state.services.add('sound');
+  // UART may exist without delivering LS packets. Mark channels ready only on valid data.
  });
  setServiceMessage();
  setBadge('Connected','connected');
- stat('Connected to '+(device.name||'micro:bit')+'. Missing channels require an updated firmware HEX.');
+ stat('Connected to '+(device.name||'micro:bit')+'. See Available/Missing services below. Some absent services may require a new HEX.');
  stream('Live Bluetooth · '+state.services.size+' sensor groups');
  updateReady();scheduleDraw();
  if(!state.services.size)stat('Bluetooth connected, but no supported sensor services were found. Flash the firmware in the setup guide.');
@@ -293,7 +313,7 @@ function disconnect(unexpected=true){
  for(const n of state.notifications){try{n.ch.removeEventListener('characteristicvaluechanged',n.handle);n.ch.stopNotifications().catch(()=>{});}catch(_){}}
  state.notifications=[];
  if(state.server?.connected)try{state.server.disconnect();}catch(_){}
- state.device=null;state.server=null;state.mode='none';state.services=new Set();uartBuffer='';
+ state.device=null;state.server=null;state.mode='none';state.services=new Set();state.serviceErrors=[];uartBuffer='';
  setServiceMessage();setBadge('Not connected');updateReady();
  if(unexpected){stat('Micro:bit disconnected. Any completed recording is still available for export.');stream('Disconnected');}
 }
