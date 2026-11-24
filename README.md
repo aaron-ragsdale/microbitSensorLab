@@ -7,7 +7,7 @@ A lightweight, **static GitHub Pages** sensor exploration and measurement lab fo
 ## What you can do
 
 - **Live graphs:** Connect through Web Bluetooth (Chrome/Edge on a compatible system) and display accelerometer X/Y/Z, magnetometer X/Y/Z, compass heading, light level, microphone sound level, and approximate board temperature.
-- **Interactive exploration:** Toggle sensors, zoom and pan each plot using Plotly, choose a rolling time window, pause the display, reset zoom, and auto-scale the graph axes by sensor.
+- **Interactive exploration:** Toggle sensors, zoom and pan each plot using Plotly, choose a rolling time window, pause the display, reset zoom, and auto-scale the graph axes by sensor. A single selected graph expands; graphs become more compact as you select additional sensors. Small X/Y/Z buttons in the accelerometer and magnetometer graph headers show or hide individual axes without adding separate charts.
 - **Heuristic measurement:** Select a signal and a threshold, count upward or downward crossings, add a cooldown and hysteresis to reduce duplicate detections, and reset the count. You can click a data point on the matching graph to set the threshold or enter any value numerically.
 - **Record:** Record 5, 10, 30, 60 seconds, or manually start/stop. Sensor observations are held in your browser memory for the current session.
 - **Export:** Save a high-resolution PNG image of the selected graphs with threshold line, a CSV containing timestamped samples for all sensors, or both. A custom trial name is used for filenames.
@@ -28,7 +28,7 @@ No gyroscope is available on a micro:bit V2. The microphone output here is **sou
 
 ## Getting started: physical micro:bit V2
 
-This repo includes [MakeCode firmware source](firmware/main.ts), not a compiled HEX. It enables standard Bluetooth accelerometer, magnetometer, temperature, and UART services.
+This repo includes [MakeCode firmware source](firmware/main.ts) and a precompiled HEX. **The current source may be newer than the HEX.** The newer compact firmware enables standard Bluetooth accelerometer and temperature services, and sends magnetometer, compass, light and sound data via Bluetooth UART. The website can also read magnetometer GATT data from earlier HEX builds that expose the standard magnetometer service.
 
 1. Open [Microsoft MakeCode](https://makecode.microbit.org/) and choose micro:bit V2.
 2. Add the **Bluetooth** extension (MakeCode will remove the Radio extension if necessary).
@@ -46,13 +46,13 @@ This repo includes [MakeCode firmware source](firmware/main.ts), not a compiled 
 | Graph | Firmware / transmission | Units |
 | --- | --- | --- |
 | Acceleration X, Y, Z | micro:bit Accelerometer GATT Service | mg (1 g ≈ 1000 mg) |
-| Magnetic field X, Y, Z | Magnetometer GATT Service | µT |
-| Compass heading | Magnetometer GATT Service, compass bearing characteristic | degrees |
+| Magnetic field X, Y, Z | Magnetometer GATT Service in earlier HEX builds, or UART `M,x,y,z` in the revised source | µT |
+| Compass heading | Magnetometer GATT Service in earlier HEX builds, or UART `C,heading` in the revised source | degrees |
 | Temperature | Temperature GATT Service | °C (approximate on-board sensor) |
 | Light level | MakeCode `input.lightLevel()` via UART | 0–255 |
 | Sound level | MakeCode `input.soundLevel()` via UART | 0–255 |
 
-The UART firmware sends newline-delimited short lines using the form `LS,171,24` approximately every 200 ms. The other GATT service sampling rates are controlled by the micro:bit runtime and Bluetooth connection, not guaranteed to be synchronized. CSV exports preserve individual observation timestamps and leave channels blank when there was no measurement in that event.
+The UART firmware sends newline-delimited short lines such as `LS,171,24`, `M,12,-5,31`, `C,184` and `T,23`. The older HEX may expose a different subset of services. The other GATT service sampling rates are controlled by the micro:bit runtime and Bluetooth connection, not guaranteed to be synchronized. CSV exports preserve individual observation timestamps and leave channels blank when there was no measurement in that event.
 
 ## Understanding the threshold counter
 
@@ -97,3 +97,11 @@ This repository is designed to publish directly without a build step:
 ## Credits
 
 Uses [Plotly.js](https://plotly.com/javascript/) for interactive charts. Compatible micro:bit Bluetooth services are documented by the [micro:bit Foundation](https://microbit.org/) and [MakeCode Bluetooth](https://makecode.microbit.org/reference/bluetooth).
+
+## Troubleshooting missing channels or temperature gaps
+
+- If **accelerometer and temperature work but magnetometer, light, or microphone do not**, check the website's **Available / Missing / Details** status after connecting. Missing Bluetooth services cannot be enabled just by checking a sensor box.
+- The revised [firmware/main.ts](firmware/main.ts) adds a compact UART fallback for magnetometer and compass data alongside light/sound. **You must compile a new HEX and flash it** to gain features not present in the existing compiled firmware. The site does not remotely update the micro:bit.
+- **Scalar values (temperature, compass, light and sound)** are now plotted as step/hold signals: the displayed level stays constant until the next reading. The axis can auto-scale as readings change; any actual changes reported by the sensor remain visible.
+- The per-sensor diagnostics distinguish missing services from a successfully subscribed service that has not yet produced valid data. If the new firmware still fails, share the status text for investigation.
+- The revised firmware is **experimental and not yet compiled or hardware-validated**. Begin with one V2 device before reflashing a class set.
