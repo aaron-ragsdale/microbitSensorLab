@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f6f8fb">
+<meta name="description" content="Explore micro:bit sensors live, design threshold counters, and record graph snapshots and CSV data locally.">
+<title>micro:bit Sensor Lab</title>
+<link rel="stylesheet" href="./style.css">
+<script defer src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<script defer src="./app.js"></script>
+</head>
+<body>
+<header class="masthead">
+ <div class="brand"><div class="mark">m<span>:</span></div><div><strong>micro:bit Sensor Lab</strong><small>Explore movement. Make measurements.</small></div></div>
+ <div class="headright"><span class="privacy"><span class="privacy-dot"></span> Local processing</span><a href="./README.md" target="_blank" rel="noopener">Setup guide ↗</a></div>
+</header>
+<main>
+ <section class="hero">
+  <div><p class="eyebrow">CONNECT · VISUALIZE · MEASURE</p><h1>See what your sensors are telling you.</h1><p>Explore live micro:bit data, find meaningful patterns, and build simple counters from your own measurements. Record a trial, save a graph and CSV, or replay an experiment.</p></div>
+  <div class="connection card">
+   <div class="card-title"><span>Data source</span><span id="connectionBadge" class="pill">Not connected</span></div>
+   <div class="buttonrow"><button id="connectBtn" class="primary">Connect micro:bit</button><button id="demoBtn" class="secondary">Try demo</button><button id="disconnectBtn" class="quiet" disabled>Disconnect</button></div>
+   <p id="connectionText" class="helper">Chrome or Edge + Bluetooth + compatible MakeCode firmware. Or try demo data.</p>
+   <div id="serviceStatus" class="service-status" aria-live="polite">No sensor services connected.</div>
+  </div>
+ </section>
+
+ <section class="dashboard">
+  <aside class="sidebar">
+   <div class="card">
+    <div class="section-title"><h2>Sensor channels</h2><span class="tiny">Toggle to plot</span></div>
+    <div id="sensorOptions" class="sensor-options">
+     <label class="sensor-item"><input type="checkbox" data-sensor="accelerometer" checked><span class="sensor-dot accel"></span><span><strong>Accelerometer</strong><small>X, Y, Z · mg</small></span></label>
+     <label class="sensor-item"><input type="checkbox" data-sensor="magnetometer"><span class="sensor-dot mag"></span><span><strong>Magnetometer</strong><small>X, Y, Z · µT</small></span></label>
+     <label class="sensor-item"><input type="checkbox" data-sensor="compass"><span class="sensor-dot compass"></span><span><strong>Compass heading</strong><small>Degrees</small></span></label>
+     <label class="sensor-item"><input type="checkbox" data-sensor="light"><span class="sensor-dot light"></span><span><strong>Light level</strong><small>0–255</small></span></label>
+     <label class="sensor-item"><input type="checkbox" data-sensor="sound"><span class="sensor-dot sound"></span><span><strong>Sound level</strong><small>0–255 (V2)</small></span></label>
+     <label class="sensor-item"><input type="checkbox" data-sensor="temperature"><span class="sensor-dot temp"></span><span><strong>Temperature</strong><small>°C</small></span></label>
+    </div>
+    <p class="helper">Graphs use separate units and scales. Tap a trace in the legend to hide it.</p>
+   </div>
+   <div class="card">
+    <div class="section-title"><h2>Display</h2></div>
+    <label class="control-label" for="windowSelect">Live time window</label>
+    <select id="windowSelect"><option value="10">10 seconds</option><option value="20" selected>20 seconds</option><option value="60">60 seconds</option><option value="120">2 minutes</option><option value="0">All available</option></select>
+    <div class="buttonrow"><button id="pauseBtn" class="secondary" disabled>Pause view</button><button id="resetZoomBtn" class="quiet">Reset zoom</button></div>
+    <label class="toggle"><input id="autoScale" type="checkbox" checked> Auto-scale Y axes</label>
+    <p class="helper">Use the graph toolbar to zoom, pan, and select a range. Pausing a view doesn't stop recording.</p>
+   </div>
+   <div class="card">
+    <div class="section-title"><h2>Threshold counter</h2></div>
+    <label class="control-label" for="signalSelect">Measure signal</label><select id="signalSelect"></select>
+    <label class="control-label" for="thresholdInput">Threshold</label>
+    <div class="inline-field"><input id="thresholdInput" type="number" value="1200" step="10"><span id="thresholdUnit">mg</span></div>
+    <label class="control-label" for="directionSelect">Count crossings</label>
+    <select id="directionSelect"><option value="rising">Rising above threshold</option><option value="falling">Falling below threshold</option></select>
+    <div class="dual">
+      <div><label class="control-label" for="cooldownInput">Cooldown (ms)</label><input id="cooldownInput" type="number" min="0" max="10000" step="50" value="300"></div>
+      <div><label class="control-label" for="hysteresisInput">Hysteresis</label><input id="hysteresisInput" type="number" min="0" step="5" value="60"></div>
+    </div>
+    <label class="toggle"><input id="countEnabled" type="checkbox" checked> Show threshold line</label>
+    <div class="count-card"><div><small>Crossings</small><strong id="crossingCount">0</strong></div><button id="resetCounterBtn" class="quiet">Reset counter</button></div>
+    <p class="helper">Click a graph to place the threshold. Counts update when you adjust the settings; they are potential events, not guaranteed steps or jumps.</p>
+   </div>
+  </aside>
+  <div class="maincol">
+   <div class="card graph-card">
+    <div class="section-title"><h2>Live sensor signals</h2><span id="streamStatus" class="tiny">Waiting for data</span></div>
+    <div id="graphStack" class="graph-stack" aria-label="Sensor time-series charts"></div>
+    <div id="emptyGraph" class="empty-graph" hidden>Select at least one sensor to show its graph.</div>
+   </div>
+   <div class="card recording-card">
+    <div class="section-title"><h2>Record an experiment</h2><span id="recBadge" class="pill">Not recording</span></div>
+    <div class="record-controls">
+      <div><label class="control-label" for="trialName">Trial name</label><input id="trialName" type="text" maxlength="70" value="Walking_Trial_01" placeholder="e.g. Jumping_Trial_01"></div>
+      <div><label class="control-label" for="durationSelect">Duration</label><select id="durationSelect"><option value="5">5 seconds</option><option value="10" selected>10 seconds</option><option value="30">30 seconds</option><option value="60">60 seconds</option><option value="0">Manual stop</option></select></div>
+      <button id="recordBtn" class="record-btn" disabled>● Start recording</button>
+    </div>
+    <div class="record-info"><span id="recordTime">00:00.0</span><span id="recordSamples">0 samples</span><span id="recordingStatus">Start a demo or connect a device.</span></div>
+    <div class="downloads"><button class="secondary" id="pngBtn" disabled>Save graph PNG</button><button class="secondary" id="csvBtn" disabled>Save data CSV</button><button class="secondary" id="bundleBtn" disabled>Save both files</button></div>
+    <p class="helper">CSV contains all recorded sensor channels, even if hidden from the graphs. PNG captures the currently selected graph with threshold and axes.</p>
+   </div>
+   <div class="card">
+     <div class="section-title"><h2>Replay a recording</h2><span class="tiny">No micro:bit needed</span></div>
+     <div class="buttonrow"><label for="csvFile" class="file-label">Import CSV <input type="file" id="csvFile" accept=".csv,text/csv" hidden></label><button id="replayBtn" class="secondary" disabled>Play replay</button><button id="clearBtn" class="quiet">Clear data</button></div>
+     <p id="replayStatus" class="helper">Import a CSV exported from this lab to revisit a trial and adjust the threshold counter.</p>
+   </div>
+  </div>
+ </section>
+ <footer>Built for exploring sensor data. The micro:bit V2 has no gyroscope. Sound level is not an audio recording. Nothing is uploaded to a server.</footer>
+</main>
+</body>
+</html>
