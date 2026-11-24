@@ -48,6 +48,7 @@ function updateReady(){
  const ready=state.mode!=='none';
  $('recordBtn').disabled=!ready||state.mode==='replay';
  $('pauseBtn').disabled=!ready;
+ $('clearGraphBtn').disabled=!ready||state.mode==='replay';
  $('connectBtn').disabled=state.mode==='bluetooth';
  $('demoBtn').disabled=state.mode==='demo';
  $('disconnectBtn').disabled=!ready;
@@ -221,6 +222,26 @@ function resetData(){
  state.samples=[];state.latest={};state.lastSeen={};state.startClock=timeNow();state.lastThresholdReset=0;state.serviceData=new Set();
  state.paused=false;state.plotTouched=false;$('pauseBtn').textContent='Pause view';
  renderCount();drawPlots(true);stream('Ready for new data');
+}
+function clearGraph(){
+ // Clear the live visualization and counter without changing Bluetooth subscription,
+ // recording buffers, selected sensors, or threshold settings.
+ if(state.mode==='none'||state.mode==='replay')return;
+ const oldTime=timeNow()-state.startClock;
+ state.samples=[];
+ state.latest={};
+ state.lastSeen={};
+ state.lastThresholdReset=0;
+ state.startClock=timeNow();
+ state.paused=false;
+ state.pausedAt=0;
+ state.plotTouched=false;
+ $('pauseBtn').textContent='Pause view';
+ renderCount();
+ // Plotly.react may keep previously selected ranges; redraw the chart containers.
+ createPlots();
+ stream('Graph cleared · collecting fresh readings');
+ if(state.recording)$('recordingStatus').textContent='Graph cleared. Recording continues uninterrupted.';
 }
 function demo(){
  disconnect(false);
@@ -467,6 +488,7 @@ function init(){
  $('windowSelect').onchange=()=>{state.plotTouched=false;drawPlots(true)};
  $('autoScale').onchange=()=>{state.plotTouched=false;drawPlots(true)};
  $('resetZoomBtn').onclick=()=>{state.plotTouched=false;createPlots();};
+ $('clearGraphBtn').onclick=clearGraph;
  $('pauseBtn').onclick=()=>{state.paused=!state.paused;state.pausedAt=state.samples.at(-1)?.time_ms??0;$('pauseBtn').textContent=state.paused?'Resume view':'Pause view';if(!state.paused)drawPlots(true);};
  $('signalSelect').onchange=()=>{
   SETTINGS.signal=$('signalSelect').value;
