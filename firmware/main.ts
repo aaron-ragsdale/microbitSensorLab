@@ -1,29 +1,38 @@
-// micro:bit Sensor Lab — V2 companion MakeCode firmware (experimental).
+// micro:bit Sensor Lab — V2 sensor-streaming firmware (experimental).
+// MakeCode: add Bluetooth extension, no Radio, "No Pairing Required" for supervised testing.
+// Built-in accelerometer and temperature are sent through standard BLE services.
+// A single UART service sends magnetometer, compass, light and sound levels.
+// This uses fewer GATT services than starting every standard sensor service.
+// The Sensor Lab website handles both the older HEX and this compact protocol.
 //
-// MAKECODE SETUP:
-// 1. Open makecode.microbit.org, choose micro:bit V2.
-// 2. Add the Bluetooth extension (it replaces Radio).
-// 3. Switch to JavaScript; paste all of this program.
-// 4. Under Project Settings / Bluetooth choose "No Pairing Required"
-//    for supervised classroom use, then Download and flash the HEX.
-// 5. Use Chrome/Edge on the Sensor Lab GitHub Pages website.
-//
-// No gyroscope exists on micro:bit V2.
-// BLE standard services stream accelerometer, magnetometer, compass, temperature.
-// BLE UART streams light and microphone sound LEVELS (0–255), not raw audio.
-// Approximate transmit period for light/sound: 200 milliseconds.
-// The browser will only receive sensors that the compiled HEX exposes.
+// Flash a newly compiled HEX before testing the UART magnetic/compass readings.
+// Protocol (newline-terminated):
+// M,<X>,<Y>,<Z>       magnetic force in microteslas
+// C,<heading>         degrees
+// LS,<light>,<sound>   0..255
+// T,<temperature>     degrees C, optional fallback
 
 bluetooth.startAccelerometerService()
-bluetooth.startMagnetometerService()
 bluetooth.startTemperatureService()
 bluetooth.startUartService()
-
 basic.clearScreen()
 
+let updateCount = 0
 basic.forever(function () {
-    // Each packet is "LS,<light>,<sound>\n", usually less than 15 bytes.
-    // micro:bit V2: input.soundLevel() is available.
+    bluetooth.uartWriteLine("M," +
+        input.magneticForce(Dimension.X) + "," +
+        input.magneticForce(Dimension.Y) + "," +
+        input.magneticForce(Dimension.Z))
+    basic.pause(35)
+
     bluetooth.uartWriteLine("LS," + input.lightLevel() + "," + input.soundLevel())
-    basic.pause(200)
+    basic.pause(35)
+
+    if (updateCount % 4 == 0) {
+        bluetooth.uartWriteLine("C," + input.compassHeading())
+        basic.pause(35)
+        bluetooth.uartWriteLine("T," + input.temperature())
+    }
+    updateCount += 1
+    basic.pause(180)
 })
