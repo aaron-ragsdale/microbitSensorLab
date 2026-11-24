@@ -128,3 +128,7 @@ After updating and flashing the **newly compiled HEX**, open the website, hard-r
 - **Bytes greater than zero but 0 sensor packets:** The BLE connection is delivering text but the message format is not matching the parser.
 
 **Important:** The checked-in HEX may be older than the current `main.ts`. Editing `main.ts` does not compile or replace it. The Bluetooth handshake has been code-reviewed but **not physically verified on a micro:bit**. As a further isolation test, temporarily flash a MakeCode program with only `bluetooth.startUartService()` and a simple periodic `bluetooth.uartWriteLine("LS,100,50")`. If this works, multiple BLE services or the compiled firmware is the likely issue; if it fails, focus on UART characteristic access/subscription or the browser platform.
+
+## UART characteristic fix
+
+The micro:bit UART service uses **TX `6e400002` for notifications from the micro:bit** and **RX `6e400003` for writes from the browser**. The initial browser implementation had these directions reversed, producing `GATT Error: Not supported` when trying to subscribe to RX. This is corrected in `app.js`. After deploying, hard-refresh the site, disconnect, and reconnect. The UART-only diagnostic HEX sends constant `LS,100,50` even though acceleration/magnetometer/temperature services are absent; those missing services are expected for that temporary test. Reflash the full firmware only after confirming the UART-only test. 
