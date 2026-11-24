@@ -18,12 +18,23 @@ The micro:bit V2 does **not** have a gyroscope. Sound level is not a raw audio r
 
 ## Quick start
 
-1. Download the compiled HEX from the button at the top of the website, or use the [firmware folder](firmware/).
-2. Flash the micro:bit using the official [WebUSB HEX Download Tool](https://microbit.org/tools/webusb-hex-download-tool/) on a supported browser, with a USB data cable.
-3. Open [Sensor Lab](https://aaron-ragsdale.github.io/microbitSensorLab/) in a browser supporting Web Bluetooth, typically Chrome or Edge on a compatible computer.
-4. Click **Connect micro:bit**, select the board, and choose sensors to plot.
+**[Open the live Sensor Lab](https://aaron-ragsdale.github.io/microbitSensorLab/)**
 
-Alternatively, run **Try demo** to explore the graphs without hardware.
+1. Click **Download HEX** on the website, or get [microbit-sensor_lab.hex](firmware/microbit-sensor_lab.hex) from this repository.
+2. Connect a **micro:bit V2** with a USB data cable. Open the official [WebUSB HEX Download Tool](https://microbit.org/tools/webusb-hex-download-tool/), choose the downloaded HEX, and flash the board.
+3. Return to Sensor Lab in a Web Bluetooth-capable browser (typically Chrome or Edge on a supported computer). Click **Connect micro:bit** and select the device.
+4. Enable the sensors you want to plot.
+
+To explore without a device, click **Try demo**. Demo readings are simulated.
+
+## Explore, measure, and record
+
+- **Choose traces:** The accelerometer and magnetometer charts have compact **X/Y/Z** toggles. Accelerometer **Strength** is an optional fourth trace that starts off. Strength is the magnitude of XYZ acceleration and includes gravity.
+- **Scale and inspect:** One selected graph is large; additional graphs become more compact. Zoom and pan with the chart toolbar, auto-scale the vertical axes, or pause the view.
+- **Count events:** Choose a sensor axis, place a threshold, and count upward or downward crossings. Adjust **hysteresis** to help re-arm the detector and **cooldown** to reduce duplicate detections. Check your count against the actual motion.
+- **Clear graph:** Restart live plotting and reset the threshold count **without disconnecting the micro:bit**. It does not interrupt a recording in progress. **Reset zoom** changes only the graph view.
+- **Capture a trial:** Name an experiment, select a duration or manual stop, then choose **Save graph PNG**, **Save data CSV**, or **Save both files**. The CSV records timestamped samples from all received sensors, even if their graphs were hidden.
+- **Replay:** Import a Sensor Lab CSV to inspect previous readings and try different thresholds. The data stays in your browser unless you download the exports.
 
 ### For a new MakeCode HEX
 
@@ -54,7 +65,7 @@ The web app is **not** a firmware compiler; it only visualizes and analyzes data
 
 All sensor samples, calculations, recordings, and CSV imports are processed in the browser rather than sent to an application server. Plotly.js is loaded from an external CDN. Browser-based timestamps describe notification arrival, not synchronized hardware sampling, and Bluetooth sampling can vary. Camera, microphone audio capture, cloud accounts, and API keys are not required.
 
-The firmware and site have been tested iteratively by users on micro:bit V2; device-specific issues are still possible.
+The user has confirmed streaming for accelerometer, magnetometer, temperature, light, and sound on a micro:bit V2. Bluetooth behavior can still vary by firmware version, browser, and hardware.
 
 ## Repository structure
 
