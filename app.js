@@ -14,8 +14,8 @@ const UUID={
  temperature:'e95d6100-251d-470a-a062-fa1922dfa9a8',
  temperatureData:'e95d9250-251d-470a-a062-fa1922dfa9a8',
  uart:'6e400001-b5a3-f393-e0a9-e50e24dcca9e',
- uartNotify:'6e400003-b5a3-f393-e0a9-e50e24dcca9e',
- uartWrite:'6e400002-b5a3-f393-e0a9-e50e24dcca9e'
+ uartNotify:'6e400002-b5a3-f393-e0a9-e50e24dcca9e',
+ uartWrite:'6e400003-b5a3-f393-e0a9-e50e24dcca9e'
 };
 const DEF={
  accelerometer:{label:'Accelerometer',unit:'mg',keys:['ax','ay','az','strength'],labels:['X','Y','Z','Strength'],color:'#367ce2'},
