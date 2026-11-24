@@ -17,7 +17,7 @@ const UUID={
  uartNotify:'6e400003-b5a3-f393-e0a9-e50e24dcca9e'
 };
 const DEF={
- accelerometer:{label:'Accelerometer',unit:'mg',keys:['ax','ay','az'],labels:['X','Y','Z'],color:'#367ce2'},
+ accelerometer:{label:'Accelerometer',unit:'mg',keys:['ax','ay','az','strength'],labels:['X','Y','Z','Strength'],color:'#367ce2'},
  magnetometer:{label:'Magnetometer',unit:'µT',keys:['mx','my','mz'],labels:['X','Y','Z'],color:'#8b70c9'},
  compass:{label:'Compass heading',unit:'°',keys:['heading'],labels:['Heading'],color:'#967eb5'},
  light:{label:'Light level',unit:'0–255',keys:['light'],labels:['Light'],color:'#edb74d'},
@@ -31,7 +31,7 @@ const state={
  startClock:0,paused:false,pausedAt:0,services:new Set(),demoTimer:null,frameHandle:null,
  recording:false,recordSamples:[],recordStart:0,recordName:'Walking_Trial_01',recordTimer:null,
  savedSamples:[],savedName:'',replaying:false,replayTimer:null,thresholdEvents:[],lastThresholdReset:0,
- plotTouched:false,clickedThreshold:false,axisVisible:{ax:true,ay:true,az:true,mx:true,my:true,mz:true},serviceErrors:[],serviceData:new Set()
+ plotTouched:false,clickedThreshold:false,axisVisible:{ax:true,ay:true,az:true,strength:false,mx:true,my:true,mz:true},serviceErrors:[],serviceData:new Set(),uartPackets:0,uartBytes:0,uartLast:'',uartSubscribed:false
 };
 const MAX_SAMPLES=30000;
 const timeNow=()=>performance.now();
@@ -61,6 +61,7 @@ function setServiceMessage(){
  const missing=Object.keys(DEF).filter(k=>!state.services.has(k));
  const parts=[list.length?'Available: '+list.map(k=>DEF[k]?.label||k).join(' · '):'No sensor services detected'];
  if(missing.length)parts.push('Missing: '+missing.map(k=>DEF[k].label).join(' · '));
+ if(state.mode==='bluetooth')parts.push('UART: '+(state.uartSubscribed?'subscribed':'not subscribed')+' · '+state.uartPackets+' valid packets · '+state.uartBytes+' bytes'+(state.uartLast?' · last: '+state.uartLast:''));
  if(state.serviceErrors.length)parts.push('Details: '+state.serviceErrors.join(' | '));
  $('serviceStatus').textContent=parts.join(' — ');
 }
@@ -68,6 +69,17 @@ function addSample(partial,at){
  if(state.mode==='none')return;
  const stamp=Number.isFinite(at)?at:timeNow()-state.startClock;
  if(!state.startClock&&state.mode!=='replay')state.startClock=timeNow();
+ // Compute vector strength (magnitude) from the three acceleration axes in mg.
+ // It is derived, not a separate sensor; update only when a full XYZ set exists.
+ if(['ax','ay','az'].some(key=>Object.prototype.hasOwnProperty.call(partial,key))){
+  const ax=Number.isFinite(partial.ax)?partial.ax:state.latest.ax;
+  const ay=Number.isFinite(partial.ay)?partial.ay:state.latest.ay;
+  const az=Number.isFinite(partial.az)?partial.az:state.latest.az;
+  if([ax,ay,az].every(Number.isFinite)){
+   partial.strength=Math.round(Math.hypot(ax,ay,az)*100)/100;
+   partial._changed=[...new Set([...(partial._changed||[]),'strength'])];
+  }
+ }
  Object.assign(state.latest,partial);
  for(const key of Object.keys(partial))state.lastSeen[key]=stamp;
  const sample={time_ms:Math.round(stamp*10)/10,...state.latest};
@@ -178,7 +190,7 @@ async function drawPlots(force=false){
   const traces=def.keys.filter(key=>state.axisVisible[key]!==false).map((key)=>{
    const i=def.keys.indexOf(key);
    const {xs,ys}=readingsFor(source,key);
-   const shade=def.keys.length===3?['#367ce2','#ea9b56','#259d88'][i]:def.color;
+   const shade=group==='accelerometer'||group==='magnetometer'?['#367ce2','#ea9b56','#259d88','#a96cce'][i]:def.color;
    if(def.keys.length===1&&xs.length&&source.length){const lastTime=source[source.length-1].time_ms/1000;if(lastTime>xs.at(-1)){xs.push(lastTime);ys.push(ys.at(-1));}}
    return {type:'scattergl',mode:'lines',name:def.labels[i],x:xs,y:ys,line:{color:shade,width:1.9,shape:def.keys.length===1?'hv':'linear'},hovertemplate:'%{x:.2f} s<br>%{y:.2f} '+def.unit+'<extra>%{fullData.name}</extra>'};
   });
@@ -283,7 +295,7 @@ async function connect(){
  stat('Choose your micro:bit from the Bluetooth picker…');
  try{
  const device=await navigator.bluetooth.requestDevice({filters:[{namePrefix:'BBC micro:bit'}],optionalServices:[UUID.accelerometer,UUID.magnetometer,UUID.temperature,UUID.uart]});
- state.device=device;const server=await device.gatt.connect();state.server=server;state.mode='bluetooth';state.services=new Set();state.serviceErrors=[];
+ state.device=device;const server=await device.gatt.connect();state.server=server;state.mode='bluetooth';state.services=new Set();state.serviceErrors=[];state.uartPackets=0;state.uartBytes=0;state.uartLast='';state.uartSubscribed=false;
  device.addEventListener('gattserverdisconnected',()=>{if(state.mode==='bluetooth')disconnect(true);});
  async function service(name,callback){
   try{const s=await server.getPrimaryService(UUID[name]);await callback(s);}catch(e){const error=name+': '+e.message;state.serviceErrors.push(error);console.info('Sensor Bluetooth error:',error);}
@@ -297,6 +309,7 @@ async function connect(){
  await service('uart',async s=>{
   const ch=await s.getCharacteristic(UUID.uartNotify);
   const handle=e=>{
+   state.uartBytes+=e.target.value.byteLength;
    uartBuffer+=new TextDecoder().decode(e.target.value);
    if(uartBuffer.length>300)uartBuffer=uartBuffer.slice(-150);
    let pos;
@@ -319,6 +332,8 @@ async function connect(){
         addSample(reading);
        }
       }
+      state.uartPackets++;
+      state.uartLast=pair[0]+' '+values.join(',');
       for(const key of keys)state.services.add(sensorForKey(key));
       setServiceMessage();
      }
@@ -326,6 +341,7 @@ async function connect(){
    }
   };
   await ch.startNotifications();ch.addEventListener('characteristicvaluechanged',handle);
+  state.uartSubscribed=true;
   state.notifications.push({ch,handle});
   // UART may exist without delivering LS packets. Mark channels ready only on valid data.
  });
@@ -347,7 +363,7 @@ function disconnect(unexpected=true){
  for(const n of state.notifications){try{n.ch.removeEventListener('characteristicvaluechanged',n.handle);n.ch.stopNotifications().catch(()=>{});}catch(_){}}
  state.notifications=[];
  if(state.server?.connected)try{state.server.disconnect();}catch(_){}
- state.device=null;state.server=null;state.mode='none';state.services=new Set();state.serviceErrors=[];uartBuffer='';
+ state.device=null;state.server=null;state.mode='none';state.services=new Set();state.serviceErrors=[];state.uartSubscribed=false;uartBuffer='';
  setServiceMessage();setBadge('Not connected');updateReady();
  if(unexpected){stat('Micro:bit disconnected. Any completed recording is still available for export.');stream('Disconnected');}
 }
@@ -416,12 +432,13 @@ async function exportPng(){
    nodes.push('<text x="72" y="'+(yy+4)+'" text-anchor="end" font-family="Arial" font-size="10" fill="#8390a1">'+(hi-j*(hi-lo)/4).toFixed(1)+'</text>');
   }
   def.keys.forEach((key,i)=>{
+   if(state.axisVisible[key]===false) return;
    const values=source.filter(s=>Number.isFinite(s[key])&&(!s._changed||s._changed.includes(key)));
    if(values.length>1){
     const path=values.map((s,j)=>(j?'L':'M')+x(s.time_ms).toFixed(2)+','+y(s[key]).toFixed(2)).join(' ');
-    nodes.push('<path d="'+path+'" fill="none" stroke="'+(def.keys.length===3?colors[i]:def.color)+'" stroke-width="1.6"/>');
+    nodes.push('<path d="'+path+'" fill="none" stroke="'+(groupIdx===0&&def.label==='Accelerometer'||def.label==='Magnetometer'?[...colors,'#a96cce'][i]:def.color)+'" stroke-width="1.6"/>');
    }
-   nodes.push('<text x="'+(960+i*39)+'" y="'+(top+5)+'" font-family="Arial" font-size="11" fill="'+(def.keys.length===3?colors[i]:def.color)+'">'+xmlSafe(def.labels[i])+'</text>');
+   nodes.push('<text x="'+(960+i*39)+'" y="'+(top+5)+'" font-family="Arial" font-size="11" fill="'+(def.label==='Accelerometer'||def.label==='Magnetometer'?[...colors,'#a96cce'][i]:def.color)+'">'+xmlSafe(def.labels[i])+'</text>');
   });
   if(def.keys.includes(SETTINGS.signal)&&$('countEnabled').checked){const yy=y(SETTINGS.threshold);nodes.push('<line x1="80" x2="1080" y1="'+yy+'" y2="'+yy+'" stroke="#d65760" stroke-width="2" stroke-dasharray="8 5"/>');}
   nodes.push('<text x="580" y="'+(top+220)+'" text-anchor="middle" font-family="Arial" font-size="11" fill="#8390a1">Time (s) 0–'+(duration/1000).toFixed(1)+'</text>');
