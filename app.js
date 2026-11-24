@@ -282,11 +282,24 @@ async function connect(){
    while((pos=uartBuffer.indexOf('\n'))>=0){
     const line=uartBuffer.slice(0,pos).trim();uartBuffer=uartBuffer.slice(pos+1);
     const pair=line.split(',');
-    if(pair.length===3&&pair[0]==='LS'){
-     const light=Number(pair[1]),sound=Number(pair[2]);
-     if(Number.isFinite(light)&&Number.isFinite(sound)){
-      addSample({light,sound,_changed:['light','sound']});
-      state.services.add('light');state.services.add('sound');setServiceMessage();
+    const types={
+     LS:['light','sound'],M:['mx','my','mz'],A:['ax','ay','az'],
+     C:['heading'],T:['temp']
+    };
+    const keys=types[pair[0]];
+    if(keys&&pair.length===keys.length+1){
+     const values=pair.slice(1).map(Number);
+     if(values.every(Number.isFinite)){
+      const reading={_changed:keys.slice()};
+      keys.forEach((key,i)=>reading[key]=values[i]);
+      // If a standard BLE service is active, prefer it over duplicate UART values.
+      if(pair[0]!=='A'||!state.services.has('accelerometer')){
+       if(pair[0]!=='T'||!state.services.has('temperature')){
+        addSample(reading);
+       }
+      }
+      for(const key of keys)state.services.add(sensorForKey(key));
+      setServiceMessage();
      }
     }
    }
