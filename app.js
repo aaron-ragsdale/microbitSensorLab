@@ -10,7 +10,6 @@ const UUID={
  accelerometerData:'e95dca4b-251d-470a-a062-fa1922dfa9a8',
  magnetometer:'e95df2d8-251d-470a-a062-fa1922dfa9a8',
  magnetometerData:'e95dfb11-251d-470a-a062-fa1922dfa9a8',
- compassData:'e95d9715-251d-470a-a062-fa1922dfa9a8',
  temperature:'e95d6100-251d-470a-a062-fa1922dfa9a8',
  temperatureData:'e95d9250-251d-470a-a062-fa1922dfa9a8',
  uart:'6e400001-b5a3-f393-e0a9-e50e24dcca9e',
@@ -20,7 +19,6 @@ const UUID={
 const DEF={
  accelerometer:{label:'Accelerometer',unit:'mg',keys:['ax','ay','az','strength'],labels:['X','Y','Z','Strength'],color:'#367ce2'},
  magnetometer:{label:'Magnetometer',unit:'µT',keys:['mx','my','mz'],labels:['X','Y','Z'],color:'#8b70c9'},
- compass:{label:'Compass heading',unit:'°',keys:['heading'],labels:['Heading'],color:'#967eb5'},
  light:{label:'Light level',unit:'0–255',keys:['light'],labels:['Light'],color:'#edb74d'},
  sound:{label:'Sound level',unit:'0–255',keys:['sound'],labels:['Sound'],color:'#d36d91'},
  temperature:{label:'Temperature',unit:'°C',keys:['temp'],labels:['Temperature'],color:'#2ba78a'}
@@ -273,7 +271,7 @@ function demo(){
   const t=i*0.08,step=Math.sin(t*2*Math.PI*1.65),burst=Math.pow(Math.max(0,step),5);
   const accel={ax:Math.round(160*Math.sin(t*7.1)+65*Math.sin(t*20)),ay:Math.round(120*Math.cos(t*8.3)),az:Math.round(920+800*burst+70*Math.sin(t*19))};
   const mag={mx:Math.round(25*Math.sin(t/4)),my:Math.round(40*Math.cos(t/4)),mz:Math.round(18+9*Math.sin(t/7))};
-  const extras={heading:Math.round((90+30*Math.sin(t/4)+360)%360),light:Math.round(160+75*Math.sin(t/3)),sound:Math.round(20+(i%47===0?190:12*Math.random())),temp:Math.round((23.5+0.8*Math.sin(t/20))*10)/10};
+  const extras={light:Math.round(160+75*Math.sin(t/3)),sound:Math.round(20+(i%47===0?190:12*Math.random())),temp:Math.round((23.5+0.8*Math.sin(t/20))*10)/10};
   const combined={...accel,...mag,...extras};
   addSample({...combined,_changed:KEYS.slice()},timeNow()-state.startClock);
   i++;
@@ -310,7 +308,6 @@ async function connect(){
  await service('accelerometer',async s=>subscribe(s,UUID.accelerometerData,v=>signedVector(v,['ax','ay','az']),'accelerometer'));
  await service('magnetometer',async s=>{
   await subscribe(s,UUID.magnetometerData,v=>signedVector(v,['mx','my','mz'],0.1),'magnetometer');
-  try{await subscribe(s,UUID.compassData,v=>{if(v.byteLength>=2)addSample({heading:v.getUint16(0,true),_changed:['heading']});},'compass');}catch(e){console.info('Compass bearing unavailable',e.message);}
  });
  await service('temperature',async s=>subscribe(s,UUID.temperatureData,v=>{if(v.byteLength)addSample({temp:v.getInt8(0),_changed:['temp']});},'temperature'));
  await service('uart',async s=>{
@@ -326,7 +323,7 @@ async function connect(){
     const pair=line.split(',');
     const types={
      LS:['light','sound'],M:['mx','my','mz'],A:['ax','ay','az'],
-     C:['heading'],T:['temp']
+     T:['temp']
     };
     if(pair[0]==='ACK'){
      state.uartHandshake='acknowledged';state.uartLast=line;setServiceMessage();continue;
@@ -531,7 +528,7 @@ function init(){
  $('signalSelect').onchange=()=>{
   SETTINGS.signal=$('signalSelect').value;
   const unit=DEF[sensorForKey(SETTINGS.signal)]?.unit||'';$('thresholdUnit').textContent=unit;
-  const defaults={ax:300,ay:300,az:1200,mx:20,my:20,mz:20,heading:180,light:128,sound:100,temp:25};
+  const defaults={ax:300,ay:300,az:1200,mx:20,my:20,mz:20,light:128,sound:100,temp:25};
   SETTINGS.threshold=defaults[SETTINGS.signal];$('thresholdInput').value=SETTINGS.threshold;renderCount();drawPlots(true);
  };
  for(const [id,key,asString] of [['thresholdInput','threshold',false],['directionSelect','direction',true],['cooldownInput','cooldown',false],['hysteresisInput','hysteresis',false]]){
