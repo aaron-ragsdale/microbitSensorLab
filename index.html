@@ -13,9 +13,14 @@
 <body>
 <header class="masthead">
  <div class="brand"><div class="mark">m<span>:</span></div><div><strong>micro:bit Sensor Lab</strong><small>Explore movement. Make measurements.</small></div></div>
- <div class="headright"><span class="privacy"><span class="privacy-dot"></span> Local processing</span><a href="./README.md" target="_blank" rel="noopener">Setup guide ↗</a></div>
+ <nav class="headright" aria-label="Micro:bit setup">
+  <a class="header-action header-download" href="https://raw.githubusercontent.com/aaron-ragsdale/microbitSensorLab/main/firmware/microbit-sensor_lab.hex" download="microbit-sensor_lab.hex" title="Download the micro:bit V2 sensor firmware HEX">↓ Download HEX</a>
+  <a class="header-action header-flash" href="https://microbit.org/tools/webusb-hex-download-tool/" target="_blank" rel="noopener noreferrer" title="Open the official micro:bit WebUSB HEX flashing tool">Flash micro:bit ↗</a>
+  <a class="header-guide" href="./firmware/README.md" target="_blank" rel="noopener">Setup guide ↗</a>
+ </nav>
 </header>
 <main>
+ <p class="setup-hint"><strong>First time using Sensor Lab?</strong> Download the HEX above, connect your micro:bit V2 over USB, then open the official flashing tool. After flashing, choose <strong>Connect micro:bit</strong> below.</p>
  <section class="hero">
   <div><p class="eyebrow">CONNECT · VISUALIZE · MEASURE</p><h1>See what your sensors are telling you.</h1><p>Explore live micro:bit data, find meaningful patterns, and build simple counters from your own measurements. Record a trial, save a graph and CSV, or replay an experiment.</p></div>
   <div class="connection card">
