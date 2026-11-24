@@ -7,7 +7,7 @@ A lightweight, **static GitHub Pages** sensor exploration and measurement lab fo
 ## What you can do
 
 - **Live graphs:** Connect through Web Bluetooth (Chrome/Edge on a compatible system) and display accelerometer X/Y/Z, magnetometer X/Y/Z, compass heading, light level, microphone sound level, and approximate board temperature.
-- **Interactive exploration:** Toggle sensors, zoom and pan each plot using Plotly, choose a rolling time window, pause the display, reset zoom, and auto-scale the graph axes by sensor. A single selected graph expands; graphs become more compact as you select additional sensors. Small X/Y/Z buttons in the accelerometer and magnetometer graph headers show or hide individual axes without adding separate charts.
+- **Interactive exploration:** Toggle sensors, zoom and pan each plot using Plotly, choose a rolling time window, pause the display, reset zoom, and auto-scale the graph axes by sensor. A single selected graph expands; graphs become more compact as you select additional sensors. Small X/Y/Z buttons in the accelerometer and magnetometer graph headers show or hide individual axes without adding separate charts. The accelerometer also offers **Strength** (the magnitude of X/Y/Z, including gravity), hidden by default.
 - **Heuristic measurement:** Select a signal and a threshold, count upward or downward crossings, add a cooldown and hysteresis to reduce duplicate detections, and reset the count. You can click a data point on the matching graph to set the threshold or enter any value numerically.
 - **Record:** Record 5, 10, 30, 60 seconds, or manually start/stop. Sensor observations are held in your browser memory for the current session.
 - **Export:** Save a high-resolution PNG image of the selected graphs with threshold line, a CSV containing timestamped samples for all sensors, or both. A custom trial name is used for filenames.
@@ -106,3 +106,11 @@ Uses [Plotly.js](https://plotly.com/javascript/) for interactive charts. Compati
 - **Scalar values (temperature, compass, light and sound)** are now plotted as step/hold signals: the displayed level stays constant until the next reading. The axis can auto-scale as readings change; any actual changes reported by the sensor remain visible.
 - The per-sensor diagnostics distinguish missing services from a successfully subscribed service that has not yet produced valid data. If the new firmware still fails, share the status text for investigation.
 - The revised firmware is **experimental and not yet compiled or hardware-validated**. Begin with one V2 device before reflashing a class set.
+
+## November 2026 firmware streaming test
+
+The newest MakeCode source in `firmware/main.ts` restores the **standard magnetometer GATT service** alongside accelerometer and temperature. It only sends UART packets while a Bluetooth device is connected. Light and sound level stream in `LS,light,sound` packets. The compass heading is sent only **after pressing micro:bit button A and completing compass calibration**. This avoids triggering first-use compass calibration within the main UART streaming loop.
+
+**Recompile in MakeCode and replace `firmware/microbit-sensor_lab.hex`** before others download it from the website. Changing `main.ts` does not change the existing compiled HEX.
+
+The connection panel now shows **Receiving**, **Subscribed but waiting for data**, **Missing**, and whether UART is subscribed plus how many UART bytes / valid packets have arrived. If `UART: subscribed · 0 valid packets · 0 bytes`, the issue is upstream of the chart, such as firmware UART transmission or notification delivery. If bytes arrive but valid packets stay at zero, the packet format/decoder needs attention. These hypotheses still require a real device test.
