@@ -14,7 +14,8 @@ const UUID={
  temperature:'e95d6100-251d-470a-a062-fa1922dfa9a8',
  temperatureData:'e95d9250-251d-470a-a062-fa1922dfa9a8',
  uart:'6e400001-b5a3-f393-e0a9-e50e24dcca9e',
- uartNotify:'6e400003-b5a3-f393-e0a9-e50e24dcca9e'
+ uartNotify:'6e400003-b5a3-f393-e0a9-e50e24dcca9e',
+ uartWrite:'6e400002-b5a3-f393-e0a9-e50e24dcca9e'
 };
 const DEF={
  accelerometer:{label:'Accelerometer',unit:'mg',keys:['ax','ay','az','strength'],labels:['X','Y','Z','Strength'],color:'#367ce2'},
@@ -31,7 +32,7 @@ const state={
  startClock:0,paused:false,pausedAt:0,services:new Set(),demoTimer:null,frameHandle:null,
  recording:false,recordSamples:[],recordStart:0,recordName:'Walking_Trial_01',recordTimer:null,
  savedSamples:[],savedName:'',replaying:false,replayTimer:null,thresholdEvents:[],lastThresholdReset:0,
- plotTouched:false,clickedThreshold:false,axisVisible:{ax:true,ay:true,az:true,strength:false,mx:true,my:true,mz:true},serviceErrors:[],serviceData:new Set(),uartPackets:0,uartBytes:0,uartLast:'',uartSubscribed:false
+ plotTouched:false,clickedThreshold:false,axisVisible:{ax:true,ay:true,az:true,strength:false,mx:true,my:true,mz:true},serviceErrors:[],serviceData:new Set(),uartPackets:0,uartBytes:0,uartLast:'',uartSubscribed:false,uartHandshake:'not sent'
 };
 const MAX_SAMPLES=30000;
 const timeNow=()=>performance.now();
@@ -65,7 +66,7 @@ function setServiceMessage(){
  if(receiving.length)parts.push('Receiving: '+receiving.map(k=>DEF[k].label).join(' · '));
  if(waiting.length)parts.push('Subscribed, waiting for data: '+waiting.map(k=>DEF[k].label).join(' · '));
  if(missing.length)parts.push('Missing: '+missing.map(k=>DEF[k].label).join(' · '));
- if(state.mode==='bluetooth')parts.push('UART: '+(state.uartSubscribed?'subscribed':'not subscribed')+' · '+state.uartPackets+' valid packets · '+state.uartBytes+' bytes'+(state.uartLast?' · last: '+state.uartLast:''));
+ if(state.mode==='bluetooth')parts.push('UART: '+(state.uartSubscribed?'subscribed':'not subscribed')+' · handshake: '+state.uartHandshake+' · '+state.uartPackets+' sensor packets · '+state.uartBytes+' bytes'+(state.uartLast?' · last: '+state.uartLast:''));
  if(state.serviceErrors.length)parts.push('Details: '+state.serviceErrors.join(' | '));
  $('serviceStatus').textContent=parts.join(' — ');
 }
@@ -301,7 +302,7 @@ async function connect(){
  stat('Choose your micro:bit from the Bluetooth picker…');
  try{
  const device=await navigator.bluetooth.requestDevice({filters:[{namePrefix:'BBC micro:bit'}],optionalServices:[UUID.accelerometer,UUID.magnetometer,UUID.temperature,UUID.uart]});
- state.device=device;const server=await device.gatt.connect();state.server=server;state.mode='bluetooth';state.services=new Set();state.serviceErrors=[];state.uartPackets=0;state.uartBytes=0;state.uartLast='';state.uartSubscribed=false;
+ state.device=device;const server=await device.gatt.connect();state.server=server;state.mode='bluetooth';state.services=new Set();state.serviceErrors=[];state.uartPackets=0;state.uartBytes=0;state.uartLast='';state.uartSubscribed=false;state.uartHandshake='not sent';
  device.addEventListener('gattserverdisconnected',()=>{if(state.mode==='bluetooth')disconnect(true);});
  async function service(name,callback){
   try{const s=await server.getPrimaryService(UUID[name]);await callback(s);}catch(e){const error=name+': '+e.message;state.serviceErrors.push(error);console.info('Sensor Bluetooth error:',error);}
@@ -327,6 +328,9 @@ async function connect(){
      LS:['light','sound'],M:['mx','my','mz'],A:['ax','ay','az'],
      C:['heading'],T:['temp']
     };
+    if(pair[0]==='ACK'){
+     state.uartHandshake='acknowledged';state.uartLast=line;setServiceMessage();continue;
+    }
     const keys=types[pair[0]];
     if(keys&&pair.length===keys.length+1){
      const values=pair.slice(1).map(Number);
@@ -350,6 +354,16 @@ async function connect(){
   await ch.startNotifications();ch.addEventListener('characteristicvaluechanged',handle);
   state.uartSubscribed=true;
   state.notifications.push({ch,handle});
+  try{
+   const write=await s.getCharacteristic(UUID.uartWrite);
+   const data=new TextEncoder().encode('START\n');
+   await write.writeValue(data);
+   state.uartHandshake='START sent';
+  }catch(error){
+   state.uartHandshake='write failed: '+error.message;
+   state.serviceErrors.push('UART START: '+error.message);
+  }
+  setServiceMessage();
   // UART may exist without delivering LS packets. Mark channels ready only on valid data.
  });
  setServiceMessage();
