@@ -1,69 +1,38 @@
-# micro:bit Sensor Lab firmware
+# Firmware for micro:bit Sensor Lab
 
-This folder contains the firmware for connecting a **BBC micro:bit V2** to the [micro:bit Sensor Lab website](https://aaron-ragsdale.github.io/microbitSensorLab/).
+This folder contains the micro:bit V2 program used by the [Sensor Lab website](https://aaron-ragsdale.github.io/microbitSensorLab/).
 
 ## Files
 
-- **[microbit-sensor_lab.hex](./microbit-sensor_lab.hex)** — precompiled firmware you can download and install on a micro:bit V2.
-- **[main.ts](./main.ts)** — the MakeCode JavaScript/TypeScript source if you want to inspect, customize, or recompile the program.
+- [microbit-sensor_lab.hex](microbit-sensor_lab.hex) — compiled HEX for flashing onto a micro:bit.
+- [main.ts](main.ts) — MakeCode JavaScript source for reviewing or recompiling the firmware.
 
-## Install the HEX on a micro:bit
+## Flash your micro:bit
 
-1. Download **[microbit-sensor_lab.hex](./microbit-sensor_lab.hex)** from this folder. On GitHub, open the file and select **Download raw file** (or use the download icon).
-2. Connect your **micro:bit V2** to your computer using a USB data cable.
-3. Open the official **[micro:bit WebUSB HEX Download Tool](https://microbit.org/tools/webusb-hex-download-tool/)** using a supported browser, such as Chrome or Edge.
-4. Follow the tool's instructions to connect your micro:bit and select the downloaded `.hex` file to flash.
-5. When installation completes, let the micro:bit restart. A blank 5×5 LED display is expected because the firmware is primarily sending sensor measurements.
+1. Download the **HEX file** using the button on [Sensor Lab](https://aaron-ragsdale.github.io/microbitSensorLab/), or download `microbit-sensor_lab.hex` from this folder.
+2. Connect your **micro:bit V2** to the computer using a USB data cable.
+3. Open the official [micro:bit WebUSB HEX Download Tool](https://microbit.org/tools/webusb-hex-download-tool/).
+4. Select the HEX file and follow the tool's instructions to flash the board.
+5. Open Sensor Lab in Chrome or Edge, click **Connect micro:bit**, and select the board. Its LED screen may remain blank.
 
-**The WebUSB tool installs an existing HEX file; it does not compile `main.ts`.** You do not need to open MakeCode or edit any code when using the provided HEX.
+The WebUSB tool **installs a compiled HEX**. It does not compile `main.ts`.
 
-## Open the Sensor Lab
+## Recompile the firmware in MakeCode
 
-1. Visit **[micro:bit Sensor Lab](https://aaron-ragsdale.github.io/microbitSensorLab/)**.
-2. Choose **Connect micro:bit**, then select your board in the browser Bluetooth picker.
-3. Choose the sensors you want to view. Explore the graphs, set threshold counters, record a trial, and export PNG images or CSV data.
+Open [MakeCode](https://makecode.microbit.org/), choose micro:bit V2, add the **Bluetooth extension** (not Radio), and paste [main.ts](main.ts) in JavaScript mode. Set Bluetooth to **No Pairing Required** for a supervised testing environment if necessary, then download the HEX.
 
-The **original compiled HEX** was designed to expose accelerometer, magnetometer/compass, and temperature Bluetooth services and send light and microphone **sound-level** measurements through Bluetooth UART. The **current main.ts source** has since been revised to reduce the number of GATT services: it exposes standard accelerometer and temperature services and sends magnetometer, compass, light and sound levels using compact UART packets. **The committed HEX is not automatically updated by a change to main.ts.** Recompile and flash a new HEX to get the revised protocol. The micro:bit V2 does not include a gyroscope, and sound level is not a raw audio recording.
+The source enables:
+- **Accelerometer X/Y/Z** through the Bluetooth Accelerometer Service.
+- **Magnetometer X/Y/Z** through the Bluetooth Magnetometer Service.
+- **Temperature** through the Bluetooth Temperature Service.
+- **Light level and microphone sound level** through Bluetooth UART, after the website sends `START` and the micro:bit acknowledges with `ACK`.
+
+The website calculates acceleration **Strength** from X/Y/Z. It is optional and off by default. The website deliberately does not display compass heading; no compass calibration is required.
+
+**Important:** Changes to `main.ts` don't update `microbit-sensor_lab.hex`. Replace the compiled HEX in this directory after regenerating it, so the top-of-page download remains current.
 
 ## Troubleshooting
 
-- **Board not detected over USB:** Try a USB cable that supports data, not only charging. Reconnect the board and retry the WebUSB tool.
-- **Bluetooth cannot find the micro:bit:** Confirm the firmware is installed and running, that Bluetooth is enabled, and that you are using a browser with Web Bluetooth support.
-- **Connected but no sensor readings:** Check the Sensor Lab's available-service status. Disconnect, reset the board once, and reconnect. If a service is missing, the firmware may need to be rebuilt in MakeCode.
-- **No data for light or microphone:** These measurements require the UART streaming component in the firmware. On V2, sound readings reflect loudness only.
+If light and sound don't appear, check the website's UART subscription and handshake diagnostics. The site sends `START\n` after subscribing and expects `ACK\n`, then `LS,light,sound` packets. Check the uploaded HEX, Bluetooth permissions, and reconnection state. If the micro:bit doesn't appear over USB, confirm the USB cable transfers data.
 
-## Notes
-
-The committed HEX is provided for convenience but has not yet been independently hardware-validated in this project. Test it on one board before preparing a classroom set. This firmware uses Bluetooth, **not the micro:bit Radio extension**.
-
-For details about the full web application, see the [main project README](../README.md).
-
-## Firmware versions and missing sensors
-
-The website now reports which Bluetooth services it can access. If only accelerometer and temperature appear, the installed HEX may lack the additional services or the UART stream may not have started successfully. The checkbox only controls visibility; it cannot turn a missing Bluetooth service on.
-
-The revised `main.ts` reduces service count and streams these newline-delimited UART packets: `M,x,y,z` for magnetic field, `C,heading` for compass, `LS,light,sound` for environment readings, and `T,temp` as a temperature fallback. It is an **untested update** until you compile and verify it on micro:bit V2. The website also supports the earlier magnetometer GATT service when it is available.
-
-The dashboard shows a larger graph when only one sensor is checked, compact graphs for multiple sensors, X/Y/Z selection buttons for accelerometer and magnetometer, and step/hold plots for slowly updated scalar sensors such as temperature.
-
-## Latest source and compass calibration
-
-The latest `main.ts` starts **accelerometer, magnetometer, temperature and UART** services. It sends light and microphone sound levels over UART **only while Bluetooth is connected**. For compass heading, **press button A on the micro:bit** and follow the compass calibration instructions; heading packets begin after calibration completes. This change is intended to prevent first-use compass calibration from interrupting light/sound streaming.
-
-The website now includes an optional **Strength** curve under Accelerometer. Strength is calculated in the browser from the X, Y and Z readings as `sqrt(x*x + y*y + z*z)` in mg and is turned off by default. It includes gravity and is not a separate micro:bit sensor.
-
-The existing `microbit-sensor_lab.hex` is **not automatically regenerated** by edits to `main.ts`. Generate a new HEX in MakeCode and replace the file in this folder before the download button can serve this version. This source has not been independently verified on a physical board.
-
-## Bluetooth UART handshake diagnostic (latest revision)
-
-If **acceleration, magnetic field, and temperature work** but **light, sound, and compass do not**, the standard services are working and the UART path needs testing. The latest website subscribes to UART notifications and sends `START\n`; the latest `firmware/main.ts` waits for that command, replies `ACK\n`, and streams `LS,light,sound\n` while connected. **Press button A to calibrate the compass;** after successful calibration the board streams `C,heading\n` too.
-
-After updating and flashing the **newly compiled HEX**, open the website, hard-refresh, and reconnect. Under the connection controls, look for:
-
-- **UART: not subscribed** or **Missing: light, sound:** The browser couldn't access the UART notifications. Check the detailed error and HEX version.
-- **Handshake: write failed:** The app couldn't send START to the board. Check the error text.
-- **Handshake: START sent, 0 bytes:** The board did not reply. Check that the *new* HEX is flashed; on-board MakeCode may not be receiving the command.
-- **Handshake: acknowledged:** The UART connection is working. Light and sound should show sensor samples. Compass needs button A calibration.
-- **Bytes greater than zero but 0 sensor packets:** The BLE connection is delivering text but the message format is not matching the parser.
-
-**Important:** The checked-in HEX may be older than the current `main.ts`. Editing `main.ts` does not compile or replace it. The Bluetooth handshake has been code-reviewed but **not physically verified on a micro:bit**. As a further isolation test, temporarily flash a MakeCode program with only `bluetooth.startUartService()` and a simple periodic `bluetooth.uartWriteLine("LS,100,50")`. If this works, multiple BLE services or the compiled firmware is the likely issue; if it fails, focus on UART characteristic access/subscription or the browser platform.
+The micro:bit V2 microphone provides **sound level, not raw audio**. The firmware is intended for micro:bit V2 and has no gyroscope.
