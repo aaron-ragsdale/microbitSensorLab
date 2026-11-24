@@ -12,3 +12,15 @@
 .setup-hint strong{color:#294766}
 @media(max-width:720px){.masthead{flex-wrap:wrap}.headright{width:100%;justify-content:flex-start}.header-action{flex:1}.header-guide{margin-left:2px}.setup-hint{font-size:11px}}
 @media(max-width:420px){.header-action{font-size:11px;padding:8px}.headright{gap:7px}}
+
+/* Sensor plots grow when fewer channels are visible. */
+.sensor-plot{min-width:0}
+.sensor-plot-header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-start;min-height:30px;margin-bottom:4px}
+.sensor-plot-header>span{margin-right:auto}
+.axis-pills{display:inline-flex;gap:3px;margin-left:auto;padding:3px;background:#eef3f9;border-radius:9px}
+.axis-pill{min-width:29px;padding:4px 9px;font-size:11px;font-weight:800;border-radius:7px;background:transparent;border:1px solid transparent;color:#8292a7}
+.axis-pill[aria-pressed="true"]{background:white;color:#2564b5;box-shadow:0 1px 4px #172f501d;border-color:#dce7f5}
+.axis-pill:hover{color:#244c7a}
+.plot{min-height:220px;transition:height .2s ease}
+.service-status{overflow-wrap:anywhere;line-height:1.6}
+@media(max-width:600px){.sensor-plot-header{gap:6px}.axis-pills{margin-left:0}.sensor-plot{padding:8px}.plot{min-height:220px}}
